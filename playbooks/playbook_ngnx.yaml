@@ -1,0 +1,36 @@
+- hosts: all
+  become: yes      
+  tasks:
+  - name: "apt-get update"
+    apt:
+      update_cache: yes
+
+  - name: "install nginx" 
+    apt:
+      name: ['nginx']
+      state: latest
+
+  - name: "copy service_stat file"
+    copy:
+      src: ../data/service_stat
+      dest: /opt/service_stat
+    notify: "Restart nginx"
+
+  - name: "creating cron script"
+    copy:
+      dest: "/bin/update_nginx_stat"
+      mode: a+x
+      content: |
+        #!/bin/bash
+        sed -i "s/is .*$/is $(($(ps -o etimes= -p $(cat /var/run/nginx.pid)) / 60)) minutes/" /opt/service_stat
+
+  - name: "add script to cron"
+    shell: ! grep "\*/1 \* \* \* \* root /bin/update_nginx_stat" /etc/crontab || echo "*/1 * * * * root /bin/update_nginx_stat" | sudo tee --append /etc/crontab > /dev/null
+
+  
+  handlers:
+    - name: "Restart nginx"
+      service: 
+        name: nginx
+        state: restarted
+

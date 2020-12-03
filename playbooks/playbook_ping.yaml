@@ -1,0 +1,8 @@
+---
+- name: "Ping servers"
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: ping_my_servers
+      ping:

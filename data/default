@@ -1,0 +1,11 @@
+server {
+    listen 80;
+    server_name snake.futurestud.io;
+
+    access_log /var/log/nginx/snake_futurestud_io_access.log;
+    error_log  /var/log/nginx/snake_futurestud_io_error.log;
+
+    location /service_data {
+        alias /opt/service_stat;
+    }
+}

@@ -1,0 +1,15 @@
+---
+- name: "Uninstall nginx"
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: "Stop nginx service"
+      service: 
+          name: nginx 
+          state: stopped
+
+    - name: "Uninstall nginx"
+      apt: 
+        name: nginx
+        state: absent

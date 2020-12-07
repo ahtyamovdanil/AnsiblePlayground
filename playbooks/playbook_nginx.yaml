@@ -1,0 +1,85 @@
+- hosts: all
+  become: yes      
+
+  vars:
+    status_name: "{{ lookup('file', '../data/service_stat').split('\n')[0] }}"
+
+  tasks:
+
+# ----- install and start nginx ---------
+
+  - debug: 
+      var: status_name
+
+  - name: "apt-get update"
+    apt:
+      update_cache: yes
+
+  - name: "install nginx" 
+    apt:
+      name: ['nginx']
+      state: latest
+    notify: "Copy service_stat file"
+
+  - name: "start nginx"
+    service:
+      name: nginx
+      state: started
+
+  - name: "copy config file"
+    copy:
+      src: ../data/default
+      dest: /etc/nginx/sites-enabled/default
+    notify: "Reload nginx"
+
+# ----- configure cron ---------
+
+  - name: "creating cron script"
+    copy:
+      dest: "/bin/update_nginx_stat"
+      mode: a+x
+      content: |
+        #!/bin/bash
+        sed -i "s/is .*$/is $(($(ps -o etimes= -p $(cat /var/run/nginx.pid)) / 60)) minutes/" /opt/service_stat
+
+  - name: "add script to cron"
+    shell: ! grep "\*/1 \* \* \* \* root /bin/update_nginx_stat" /etc/crontab || echo "*/1 * * * * root /bin/update_nginx_stat" | sudo tee --append /etc/crontab > /dev/null
+    register: aptkey
+
+  - debug: 
+      var: status_name
+
+
+# ----- service_stat file message ---------
+
+  - name: "replace service stat message"
+    replace:
+      path: /opt/service_stat
+      regexp: '([\w\s]+)(?=\n\bService uptime is\b)'
+      replace: "{{ status_name }}"
+    register: replace_status
+    notify: 
+      - "Restart nginx"
+      - "Copy service_stat file"
+
+  - debug:
+      var: replace_status
+
+  
+# --------  handlers ---------------
+
+  handlers:
+    - name: "Copy service_stat file"
+      copy:
+        src: ../data/service_stat
+        dest: /opt/service_stat
+
+    - name: "Restart nginx"
+      service: 
+        name: nginx
+        state: restarted
+    
+    - name: "Reload nginx"
+      service: 
+        name: nginx
+        state: reloaded
